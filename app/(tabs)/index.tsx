@@ -11,6 +11,9 @@ export default function App() {
   const [audioUri, setAudioUri] = useState(null);
   const [transcription, setTranscription] = useState(null);
 
+  const [chatbotReply, setChatbotReply] = useState(null);
+
+
   // Start recording
   const startRecording = async () => {
     try {
@@ -67,14 +70,16 @@ export default function App() {
       const mimeType = await getFileType(audioUri);
 
       // Dynamically set file extension based on MIME type
-      const fileExtension = mimeType.includes('/') ? mimeType.split('/')[1] : 'wav';
-      const fileName = 'audio.' + fileExtension;
+      const fileExtension = mimeType.includes("/")
+        ? mimeType.split("/")[1]
+        : "wav";
+      const fileName = "audio." + fileExtension;
 
       const formData = new FormData();
-      
+
       // Check if the platform is web or native
       let file;
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         const response = await fetch(audioUri);
         const blob = await response.blob();
         file = new File([blob], fileName, { type: mimeType });
@@ -87,7 +92,7 @@ export default function App() {
         };
       }
 
-      formData.append('file', file);
+      formData.append("file", file);
 
       // Debugging the FormData
       console.log("Form Data:", formData);
@@ -95,14 +100,22 @@ export default function App() {
       console.log("File Name:", fileName);
       console.log("Audio URI:", audioUri);
 
-      const response = await axios.post('http://192.168.100.5:8000/transcribe', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await axios.post(
+        "http://192.168.100.5:8000/transcribe",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
 
       const transcriptionText = response.data.transcription;
       setTranscription(transcriptionText);
+
+      // Now send that to chatbot
+      await sendToChatbot(transcriptionText);
+
       console.log("Transcription:", transcriptionText);
     } catch (err) {
       console.error("Error during transcription:", err);
@@ -110,24 +123,62 @@ export default function App() {
     }
   };
 
+
+  // Send transcription to chatbot backend and get a response
+  const sendToChatbot = async (message) => {
+    try {
+      const response = await axios.post('http://192.168.100.5:8000/chat', {
+        message: message,
+      });
+  
+      const botReply = response.data.reply;
+      console.log("Chatbot Reply:", botReply);
+      setChatbotReply(botReply);
+    } catch (error) {
+      console.error("Error contacting chatbot:", error);
+      setChatbotReply("Error contacting chatbot. Please try again.");
+    }
+  };
+  
+
+
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Voice Transcription App</Text>
       <View style={styles.buttonsContainer}>
-        <TouchableOpacity style={[styles.button, styles.startButton]} onPress={startRecording}>
+        <TouchableOpacity
+          style={[styles.button, styles.startButton]}
+          onPress={startRecording}
+        >
           <Text style={styles.buttonText}>Start Recording</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, styles.stopButton]} onPress={stopRecording}>
+        <TouchableOpacity
+          style={[styles.button, styles.stopButton]}
+          onPress={stopRecording}
+        >
           <Text style={styles.buttonText}>Stop Recording</Text>
         </TouchableOpacity>
         {audioUri && (
-          <TouchableOpacity style={[styles.button, styles.transcribeButton]} onPress={transcribeAudio}>
+          <TouchableOpacity
+            style={[styles.button, styles.transcribeButton]}
+            onPress={transcribeAudio}
+          >
             <Text style={styles.buttonText}>Transcribe</Text>
           </TouchableOpacity>
         )}
       </View>
       {transcription && (
-        <Text style={styles.transcriptionText}>Transcription: {transcription}</Text>
+        <View style={styles.transcriptionContainer}>
+          <Text style={styles.sectionHeader}>Transcription:</Text>
+          <Text style={styles.transcriptionText}>{transcription}</Text>
+        </View>
+      )}
+
+      {chatbotReply && (
+        <View style={styles.chatbotContainer}>
+          <Text style={styles.sectionHeader}>Chatbot Reply:</Text>
+          <Text style={styles.chatbotText}>{chatbotReply}</Text>
+        </View>
       )}
     </View>
   );

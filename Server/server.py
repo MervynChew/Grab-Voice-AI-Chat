@@ -6,8 +6,20 @@ import whisper  # Import the local whisper model
 from tempfile import NamedTemporaryFile
 from pydub import AudioSegment
 
+from .chatbot import ask_chatbot  # <- chatbot function
+from pydantic import BaseModel
+
+# Define the request format for /chat endpoint
+class ChatRequest(BaseModel):
+    message: str
+
+
 # Initialize FastAPI app
 app = FastAPI()
+
+@app.get("/")  # Handle GET requests to the root URL
+def read_root():
+    return {"message": "Welcome to the server!"}
 
 # Add CORS middleware to allow cross-origin requests
 # CORS for all localhost and local IP addresses
@@ -67,4 +79,13 @@ async def transcribe_audio(file: UploadFile = File(...)):
             os.remove(temp_file_path)
         if wav_file_path and os.path.exists(wav_file_path):
             os.remove(wav_file_path)
+
+
+@app.post("/chat")
+async def chat_with_bot(request: ChatRequest):
+    try:
+        reply = ask_chatbot(request.message)
+        return {"reply": reply}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 

@@ -48,6 +48,38 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
+
+
+// Below Chatbot
+
+
+  transcriptionContainer: {
+    marginTop: 20,
+  },
+  
+  chatbotContainer: {
+    marginTop: 20,
+    backgroundColor: '#f0f0f0',
+    padding: 10,
+    borderRadius: 10,
+  },
+  
+  sectionHeader: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  
+  transcriptionText: {
+    fontSize: 15,
+    color: '#333',
+  },
+  
+  chatbotText: {
+    fontSize: 15,
+    color: '#007AFF',
+  },
+  
 });
 
 export default styles;
