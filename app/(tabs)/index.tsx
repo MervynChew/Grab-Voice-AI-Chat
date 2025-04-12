@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Audio } from 'expo-av';
 import axios from 'axios';
 import { Platform } from 'react-native';  // Import Platform
+import * as Speech from 'expo-speech'; // Import expo-speech
 import styles from './style'; // Ensure your style.js exists and is valid
 import * as FileSystem from 'expo-file-system';
 
@@ -17,6 +18,7 @@ export default function App() {
   // Start recording
   const startRecording = async () => {
     try {
+      Speech.stop(); // Stop any ongoing speech before starting recording
       const permission = await Audio.requestPermissionsAsync();
       if (permission.granted) {
         const { recording: newRecording } = await Audio.Recording.createAsync(
@@ -34,6 +36,7 @@ export default function App() {
   // Stop recording
   const stopRecording = async () => {
     try {
+      Speech.stop(); // Stop any ongoing speech before stopping recording
       if (recording) {
         await recording.stopAndUnloadAsync();
         const uri = recording.getURI();
@@ -59,6 +62,13 @@ export default function App() {
       const fileInfo = await FileSystem.getInfoAsync(uri);
       return fileInfo.mimeType || 'audio/wav'; // Default to 'audio/wav' if MIME type not found
     }
+  };
+
+  // Function to speak the chatbot response
+  const speakResponse = (text: string) => {
+    Speech.speak(text, {
+      language: 'en-US', // Optional: Specify language
+    });
   };
 
   // Transcribe audio by sending it to FastAPI backend
@@ -134,6 +144,7 @@ export default function App() {
       const botReply = response.data.reply;
       console.log("Chatbot Reply:", botReply);
       setChatbotReply(botReply);
+      speakResponse(botReply); // Speak the response
     } catch (error) {
       console.error("Error contacting chatbot:", error);
       setChatbotReply("Error contacting chatbot. Please try again.");
