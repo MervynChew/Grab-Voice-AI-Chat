@@ -77,7 +77,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
         denoised_wav_path = wav_file_path.replace(".wav", "_denoised.wav")
 
         # Path to ffmpeg executable - use from PATH
-        ffmpeg_path = "ffmpeg"  # Since it's in your PATH
+        ffmpeg_path = r"C:\Users\USER\Documents\UMHakathon\ffmpeg-master-latest-win64-gpl-shared\ffmpeg-master-latest-win64-gpl-shared\bin\ffmpeg.exe"
 
         # 1. Convert WAV to raw PCM (s16le, 48kHz, mono)
         subprocess.run([
@@ -92,13 +92,13 @@ async def transcribe_audio(file: UploadFile = File(...)):
         print("filename:", file.filename)
 
         # 2. Apply RNNoise
-        rnnoise_exe = r"D:/rnnoise_dir/rnnoise/examples/rnnoise_demo.exe"
+        rnnoise_exe = r"C:/Users/USER/RNNoise/rnnoise/examples/rnnoise_demo.exe"
 
         try:
             subprocess.run(
                 [rnnoise_exe, input_raw_path, output_raw_path],
                 check=True,
-                cwd=r"D:/rnnoise_dir/rnnoise"
+                cwd=r"C:/Users/USER/RNNoise/rnnoise"
             )
         except subprocess.CalledProcessError as e:
             print("RNNoise execution failed:", e)

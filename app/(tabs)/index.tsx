@@ -16,6 +16,7 @@ interface ChatMessage {
 }
 
 export default function App() {
+  const [isRecording, setIsRecording] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [audioUri, setAudioUri] = useState<string | null>(null);
 
@@ -76,6 +77,26 @@ export default function App() {
     }
   }, [selectedLanguage, availableVoices]); // Rerun when language or voices change
 
+
+  const handlePress = async () => {
+    if (!isRecording) {
+      setIsRecording(true);
+      const rec = await startRecording(); // startRecording should return the object
+  
+    } else {
+      await stopRecording(); // Make sure this function stops recording properly
+      setIsRecording(false);
+  
+      // Ensure audioUri is set and then transcribe
+      if (audioUri) {
+        transcribeAudio();
+      } else {
+        // Handle case where audioUri is not ready yet (e.g., show an error message)
+        console.log("Audio URI not available.");
+      }
+    }
+  };
+
   // Function to add a message to the chat history
   const addMessageToHistory = (sender: 'user' | 'bot' | 'error', text: string) => {
     setChatHistory(prevHistory => [
@@ -101,6 +122,7 @@ export default function App() {
           Audio.RecordingOptionsPresets.HIGH_QUALITY
         );
         setRecording(newRecording);
+        return newRecording;  // Return the newRecording object
       } else {
         console.error("Permission to record audio is required.");
       }
@@ -112,16 +134,10 @@ export default function App() {
   // Stop recording
   const stopRecording = async () => {
     try {
-      Speech.stop(); // Stop any ongoing speech before stopping recording
-      if (recording) {
-        await recording.stopAndUnloadAsync();
-        const uri = recording.getURI();
-        setAudioUri(uri);
-        setRecording(null);
-        console.log("Recording stopped, audio URI:", uri);
-      } else {
-        console.log("No recording found to stop.");
-      }
+      const { sound, status } = await recording.stopAndUnloadAsync();
+      const uri = recording.getURI(); // Retrieve the URI after stopping
+      setAudioUri(uri);  // Update audioUri in the state
+      return { sound, status };  // You can return the sound object if necessary
     } catch (err) {
       console.error("Error stopping recording:", err);
     }
@@ -191,7 +207,7 @@ export default function App() {
   
       try {
         const response = await axios.post(
-          "http://10.213.6.220:8000/transcribe",
+          "http://192.168.100.5:8000/transcribe",
           formData,
           {
             headers: {
@@ -231,7 +247,7 @@ export default function App() {
        // Also include the recent chat history (e.g., last 4 messages)
        const recentHistory = chatHistory.slice(-4);
 
-      const response = await axios.post('http://10.213.6.220:8000/chat', {
+      const response = await axios.post('http://192.168.100.5:8000/chat', {
         message: message,
         driver_type: driverType, // Add driver type here
         chat_history: recentHistory // Add recent history here
@@ -263,39 +279,26 @@ export default function App() {
     <View style={styles.container}>
       <Text style={styles.header}>Voice Chat App</Text>
 
-      {/* New Wrapper for Side-by-Side Layout */}
+
       <View style={localStyles.layoutWrapper}>
 
-        {/* Controls Container (Left Column) */}
+
         <View style={localStyles.controlsContainer}>
-            {/* Recording Buttons */}
-            <View style={styles.buttonsContainer}>
+        <View style={localStyles.container}>
               <TouchableOpacity
-                style={[styles.button, styles.startButton]}
-                onPress={startRecording}
-                disabled={!!recording} // Disable start when recording
+                style={[
+                  localStyles.circleButton,
+                  isRecording ? localStyles.recording : localStyles.notRecording,
+                ]}
+                onPress={handlePress}
               >
-                <Text style={styles.buttonText}>Start Recording</Text>
+                <Text style={localStyles.buttonText}>
+                  {isRecording ? 'Stop & Transcribe' : 'Start'}
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.stopButton]}
-                onPress={stopRecording}
-                disabled={!recording} // Disable stop when not recording
-              >
-                <Text style={styles.buttonText}>Stop Recording</Text>
-              </TouchableOpacity>
-              {audioUri && (
-                <TouchableOpacity
-                  style={[styles.button, styles.transcribeButton]}
-                  onPress={transcribeAudio}
-                  disabled={!audioUri || !!recording} // Disable transcribe if no URI or still recording
-                >
-                  <Text style={styles.buttonText}>Transcribe</Text>
-                </TouchableOpacity>
-              )}
             </View>
 
-            {/* Language Selection */}
+
             {availableLanguages.length > 0 && (
               <View style={styles.pickerContainer}>
                 <Text style={styles.pickerLabel}>Language:</Text>
@@ -312,7 +315,7 @@ export default function App() {
             )}
 
 
-            {/* Voice Selection */}
+
             {availableVoices.length > 0 && selectedLanguage && (
               <View style={styles.pickerContainer}>
                 <Text style={styles.pickerLabel}>Voice:</Text>
@@ -330,7 +333,7 @@ export default function App() {
                 </Picker>
               </View>
             )}
-             {/* Replay Button */}
+
              <TouchableOpacity
                   style={[styles.button, styles.replayButton, localStyles.replayButtonPosition]} // Add styles for replay button
                   onPress={replayLastBotMessage} // Use updated replay function
@@ -339,7 +342,7 @@ export default function App() {
                   <Text style={styles.buttonText}>Replay Last</Text>
              </TouchableOpacity>
 
-             {/* Driver Type Selection */}
+
              <View style={styles.pickerContainer}>
                <Text style={styles.pickerLabel}>Driver Type:</Text>
                <Picker
@@ -354,7 +357,7 @@ export default function App() {
         </View>
 
 
-        {/* Chat History (Right Column) */}
+    
         <View style={localStyles.chatContainer}>
            <FlatList
               ref={flatListRef}
@@ -373,7 +376,7 @@ export default function App() {
           />
         </View>
 
-      </View> { /* End layoutWrapper */ }
+      </View> 
 
     </View>
   );
@@ -427,5 +430,34 @@ const localStyles = StyleSheet.create({
   },
    replayButtonPosition: {
     marginTop: 10, // Add some space above the replay button
-  }
+  },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff', // Make sure container is visible
+  },
+  circleButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5, // Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  recording: {
+    backgroundColor: '#ff4d4d', // red
+  },
+  notRecording: {
+    backgroundColor: '#4caf50', // green
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
 });
