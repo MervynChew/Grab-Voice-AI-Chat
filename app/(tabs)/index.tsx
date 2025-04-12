@@ -64,19 +64,19 @@ export default function App() {
   // Transcribe audio by sending it to FastAPI backend
   const transcribeAudio = async () => {
     if (!audioUri) return;
-
+  
     try {
       // Get MIME type
       const mimeType = await getFileType(audioUri);
-
+  
       // Dynamically set file extension based on MIME type
       const fileExtension = mimeType.includes("/")
         ? mimeType.split("/")[1]
         : "wav";
       const fileName = "audio." + fileExtension;
-
+  
       const formData = new FormData();
-
+  
       // Check if the platform is web or native
       let file;
       if (Platform.OS === "web") {
@@ -91,32 +91,41 @@ export default function App() {
           type: mimeType,
         };
       }
-
+  
       formData.append("file", file);
-
+  
       // Debugging the FormData
       console.log("Form Data:", formData);
       console.log("MIME Type:", mimeType);
       console.log("File Name:", fileName);
       console.log("Audio URI:", audioUri);
-
-      const response = await axios.post(
-        "http://192.168.100.5:8000/transcribe",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-
-      const transcriptionText = response.data.transcription;
-      setTranscription(transcriptionText);
-
-      // Now send that to chatbot
-      await sendToChatbot(transcriptionText);
-
-      console.log("Transcription:", transcriptionText);
+  
+      try {
+        const response = await axios.post(
+          "http://192.168.100.5:8000/transcribe",
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+  
+        console.log(response.data);  // This works because response is defined here
+  
+        // Only access response if the request was successful
+        const transcriptionText = response.data.transcription;
+        setTranscription(transcriptionText);
+  
+        // Now send that to chatbot
+        await sendToChatbot(transcriptionText);
+  
+        console.log("Transcription:", transcriptionText);
+      } catch (error) {
+        console.error('Error during transcription:', error.response ? error.response.data : error.message);
+        setTranscription("Error during transcription. Please try again.");
+      }
+  
     } catch (err) {
       console.error("Error during transcription:", err);
       setTranscription("Error during transcription. Please try again.");
