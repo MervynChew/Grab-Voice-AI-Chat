@@ -101,7 +101,7 @@ export default function App() {
       console.log("Audio URI:", audioUri);
 
       const response = await axios.post(
-        "http://192.168.100.5:8000/transcribe",
+        "http://10.213.6.220:8000/transcribe",
         formData,
         {
           headers: {
@@ -127,7 +127,7 @@ export default function App() {
   // Send transcription to chatbot backend and get a response
   const sendToChatbot = async (message) => {
     try {
-      const response = await axios.post('http://192.168.100.5:8000/chat', {
+      const response = await axios.post('http://10.213.6.220:8000/chat', {
         message: message,
       });
   

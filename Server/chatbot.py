@@ -1,52 +1,71 @@
 import requests
 import json
+from .knowledge_base import get_knowledge_base_context, get_conversation_guideline
 
 # Replace this with your actual Gemini API Key
 GEMINI_API_KEY = "AIzaSyASoWBojxZUyjP-Wb4ZWc8lzA-sRUYA3qM"
 
-def ask_chatbot(prompt: str) -> str:
+def create_prompt(user_message: str) -> str:
+    """
+    Creates a well-structured prompt with context and instructions.
+    """
+    knowledge_context = get_knowledge_base_context()
+    
+    prompt = f"""You are an AI voice assistant powered by Gemini. Here is important context about your capabilities and knowledge:
+
+{knowledge_context}
+
+Instructions:
+1. Use the knowledge base information to provide accurate and consistent responses
+2. Maintain a friendly and professional tone
+3. If unsure, ask for clarification using the provided conversation guidelines
+4. Keep responses concise but informative
+5. Always stay within the scope of your capabilities
+
+User Message: {user_message}
+
+Please provide a helpful response:"""
+    
+    return prompt
+
+def ask_chatbot(user_message: str) -> str:
     try:
+        # Create the enhanced prompt
+        prompt = create_prompt(user_message)
 
-        list_models_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
-
-        response = requests.get(list_models_url)
-        if response.status_code == 200:
-            print("Available models:", response.json())
-        else:
-            print("Error listing models:", response.text)
-
-        # Define the Gemini API endpoint with your API key in the URL
+        # Define the Gemini API endpoint
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={GEMINI_API_KEY}"
         
-        # Prepare the payload for the Gemini API.
-        # This payload sends the prompt as the user message to be processed.
+        # Prepare the payload with the enhanced prompt
         payload = {
             "contents": [
                 {
-                    "parts": [{"text": prompt}],
-                    "role": "user"
+                    "parts": [{"text": prompt}]
                 }
-            ]
+            ],
+            "generationConfig": {
+                "temperature": 0.7,
+                "topP": 0.8,
+                "topK": 40,
+                "maxOutputTokens": 1024
+            }
         }
         
-        # Set the necessary headers
+        # Set headers
         headers = {
             'Content-Type': 'application/json'
         }
         
-        # Send a POST request to the Gemini API
-        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        # Send request to Gemini API
+        response = requests.post(url, headers=headers, json=payload)
         
-        # If the request was successful, extract the reply from the response JSON.
         if response.status_code == 200:
             data = response.json()
-            # The structure here may depend on the API's response.
-            # In this example, we assume it returns a key "candidates" with the reply text in:
-            # data["candidates"][0]["content"]["parts"][0]["text"]
             reply = data["candidates"][0]["content"]["parts"][0]["text"]
             return reply.strip()
         else:
-            # If the API returns an error, return the error details.
-            return f"Error: {response.status_code} - {response.text}"
+            # Use error guideline from knowledge base
+            return get_conversation_guideline("error")
+            
     except Exception as e:
         return f"Error: {str(e)}"
