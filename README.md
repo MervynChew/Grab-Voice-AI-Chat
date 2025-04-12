@@ -17,7 +17,7 @@ While waiting at traffic signals, Grab drivers are often required to simultaneou
 
 ## ✨ Overall Flow
 
-1.  Driver records voice using the system.
+1.  The driver initiates a voice recording by tapping a button on the interface.
 2.  System preprocesses audio (noise reduction).
 3.  Audio file sent to FastAPI backend.
 4.  Backend transcribes audio using OpenAI Whisper (Python library).
