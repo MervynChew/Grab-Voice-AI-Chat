@@ -207,7 +207,7 @@ export default function App() {
         : "http://192.168.100.5:8000/transcribe";
 
 
-      // Debugging logs
+      // Debugging log
       console.log("Form Data:", formData);
       console.log("MIME Type:", mimeType);
       console.log("File Name:", fileName);
