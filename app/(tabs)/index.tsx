@@ -31,6 +31,9 @@ export default function App() {
   const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
 
+  // New state for driver type
+  const [driverType, setDriverType] = useState<'delivery' | 'ride'>('delivery'); // Default to delivery
+
   // useEffect hook for fetching voices and languages
   useEffect(() => {
     async function loadSpeechData() {
@@ -224,8 +227,14 @@ export default function App() {
   // Send transcription to chatbot backend and get a response
   const sendToChatbot = async (message: string) => {
     try {
-      const response = await axios.post('http://192.168.100.5:8000/chat', {
+       // Include the selected driver type in the request
+       // Also include the recent chat history (e.g., last 4 messages)
+       const recentHistory = chatHistory.slice(-4);
+
+      const response = await axios.post('http://10.213.6.220:8000/chat', {
         message: message,
+        driver_type: driverType, // Add driver type here
+        chat_history: recentHistory // Add recent history here
       });
   
       const botReply = response.data.reply;
@@ -329,6 +338,19 @@ export default function App() {
                >
                   <Text style={styles.buttonText}>Replay Last</Text>
              </TouchableOpacity>
+
+             {/* Driver Type Selection */}
+             <View style={styles.pickerContainer}>
+               <Text style={styles.pickerLabel}>Driver Type:</Text>
+               <Picker
+                 selectedValue={driverType}
+                 style={styles.picker}
+                 onValueChange={(itemValue) => setDriverType(itemValue)}
+               >
+                 <Picker.Item label="Delivery Driver" value="delivery" />
+                 <Picker.Item label="Ride Driver (E-hailing)" value="ride" />
+               </Picker>
+             </View>
         </View>
 
 

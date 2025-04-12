@@ -11,10 +11,13 @@ import uuid  # ⬅️ Optional: for generating unique filenames
 
 from .chatbot import ask_chatbot  # <- chatbot function
 from pydantic import BaseModel
+from typing import List, Dict, Optional # Added List, Dict, Optional
 
 # Define the request format for /chat endpoint
 class ChatRequest(BaseModel):
     message: str
+    driver_type: str
+    chat_history: Optional[List[Dict[str, str]]] = None
 
 
 # Initialize FastAPI app
@@ -73,8 +76,8 @@ async def transcribe_audio(file: UploadFile = File(...)):
         output_raw_path = wav_file_path + "_denoised.raw"
         denoised_wav_path = wav_file_path.replace(".wav", "_denoised.wav")
 
-        # Path to ffmpeg executable
-        ffmpeg_path = r"C:\Users\USER\Documents\UMHakathon\ffmpeg-master-latest-win64-gpl-shared\ffmpeg-master-latest-win64-gpl-shared\bin\ffmpeg.exe"
+        # Path to ffmpeg executable - use from PATH
+        ffmpeg_path = "ffmpeg"  # Since it's in your PATH
 
         # 1. Convert WAV to raw PCM (s16le, 48kHz, mono)
         subprocess.run([
@@ -89,13 +92,13 @@ async def transcribe_audio(file: UploadFile = File(...)):
         print("filename:", file.filename)
 
         # 2. Apply RNNoise
-        rnnoise_exe = r"C:/Users/USER/RNNoise/rnnoise/examples/rnnoise_demo.exe"
+        rnnoise_exe = r"D:/rnnoise_dir/rnnoise/examples/rnnoise_demo.exe"
 
         try:
             subprocess.run(
                 [rnnoise_exe, input_raw_path, output_raw_path],
                 check=True,
-                cwd=r"C:/Users/USER/RNNoise/rnnoise"
+                cwd=r"D:/rnnoise_dir/rnnoise"
             )
         except subprocess.CalledProcessError as e:
             print("RNNoise execution failed:", e)
@@ -144,8 +147,10 @@ async def transcribe_audio(file: UploadFile = File(...)):
 @app.post("/chat")
 async def chat_with_bot(request: ChatRequest):
     try:
-        reply = ask_chatbot(request.message)
+        history = request.chat_history if request.chat_history is not None else []
+        reply = ask_chatbot(request.message, request.driver_type, history)
         return {"reply": reply}
     except Exception as e:
+        print(f"Error in /chat endpoint: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
