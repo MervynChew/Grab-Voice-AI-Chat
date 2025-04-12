@@ -1,12 +1,9 @@
 # UMHackathon 2025 - CommitThis: Grab Voice AI Chat
 
-## Hackathon Details
-
-*   **Event**: UMHackathon 2025
 *   **Theme**: Economic empowerment through AI (from Grab's vision + AI)
 *   **Group Name**: CommitThis
 
-## Problem Statement
+## 🔍 Problem Statement
 
 While waiting at traffic signals, Grab drivers are often required to simultaneously monitor new ride requests, fare information, real-time traffic conditions, and market opportunities at the destination. This multitasking can significantly increase the risk of driver distraction and compromise road safety.
 
@@ -17,7 +14,7 @@ While waiting at traffic signals, Grab drivers are often required to simultaneou
 *   Provide clear, reliable functionality even with partial audio clarity.
 *   Demonstrate resilience across various environmental challenges.
 
-## Overall Flow
+## ✨ Overall Flow
 
 1.  Driver records voice using the system.
 2.  System preprocesses audio (noise reduction).
@@ -29,7 +26,7 @@ While waiting at traffic signals, Grab drivers are often required to simultaneou
 8.  Speech delivered to the frontend.
 9.  Driver listens to the system's response.
 
-## System Architecture
+## 🛠️ System Architecture
 
 *   **Model**: Client-server
 *   **Frontend**: React Native with Expo Go. Handles audio recording, sending requests (fetch/axios), and receiving/playing responses.
@@ -41,7 +38,7 @@ While waiting at traffic signals, Grab drivers are often required to simultaneou
     *   OpenAI Whisper: Audio processing and transcription.
     *   Google Text-to-Speech: Speech synthesis.
 
-## Utilization & Features
+## 💡 Utilization & Features
 
 The system allows drivers to interact solely through voice, minimizing distractions. Key features include:
 
@@ -50,7 +47,7 @@ The system allows drivers to interact solely through voice, minimizing distracti
 *   **Order Evaluation**: Provide an Order ID to retrieve relevant details.
 *   **Smart Recommendation Engine**: Analyzes distance, earnings, traffic, fuel, and weather to recommend accepting or declining orders, providing insights into market opportunities.
 
-## Planned Improvements
+## 🔭 Planned Improvements
 
 *   **Advanced Audio Preprocessing**: Further enhance transcription accuracy.
 *   **External API Integration**:
@@ -58,7 +55,7 @@ The system allows drivers to interact solely through voice, minimizing distracti
     *   **OpenWeather API** (Weather): Provide weather forecasts for destinations, aiding decisions on longer trips.
 *   **UI Enhancements**: Improve the graphical user interface using `styles.js`.
 
-## Setup & Installation
+## 💻 Setup & Installation
 
 ### Frontend (React Native with Expo)
 
@@ -129,7 +126,7 @@ cd ..
 
 *Ensure FFmpeg is added to your system's PATH or accessible by the application.*
 
-## Running the Application
+## ▶️ Running the Application
 
 ### 1. Start the Backend Server
 
