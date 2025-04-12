@@ -17,7 +17,8 @@ export default function App() {
 
   // States for voice selection
   const [availableVoices, setAvailableVoices] = useState<Speech.Voice[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
+  const [selectedVoice, setSelectedVoice] = useState<string>(""); // Default to empty string
+
   // States for language selection
   const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
@@ -59,7 +60,7 @@ export default function App() {
         if (defaultVoice) {
             setSelectedVoice(defaultVoice.identifier);
         } else {
-            setSelectedVoice(null); // No voice found for this language
+            setSelectedVoice(""); // No voice found for this language
         }
     }
   }, [selectedLanguage, availableVoices]); // Rerun when language or voices change
@@ -197,7 +198,7 @@ export default function App() {
   // Send transcription to chatbot backend and get a response
   const sendToChatbot = async (message: string) => {
     try {
-      const response = await axios.post('http://10.213.6.220:8000/chat', {
+      const response = await axios.post('http://192.168.100.5:8000/chat', {
         message: message,
       });
   
@@ -241,15 +242,15 @@ export default function App() {
 
       {/* Language Selection Dropdown */} 
       {availableLanguages.length > 0 && (
-        <View style={styles.pickerContainer}> 
+        <View style={styles.pickerContainer}>
           <Text style={styles.pickerLabel}>Select Language:</Text>
           <Picker
             selectedValue={selectedLanguage}
-            style={styles.picker} 
+            style={styles.picker}
             onValueChange={(itemValue) => setSelectedLanguage(itemValue)}
           >
             {availableLanguages.map((lang) => (
-              <Picker.Item key={lang} label={lang} value={lang} /> // Display language code, consider mapping to full names if needed
+              <Picker.Item key={lang} label={lang} value={lang} />
             ))}
           </Picker>
         </View>

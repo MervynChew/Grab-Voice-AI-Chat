@@ -10,7 +10,21 @@ KNOWLEDGE_BASE = {
             "Contextual responses",
             "Multi-turn conversations"
         ],
-        "supported_languages": ["English"]
+        "supported_languages": [
+            "English", 
+            "Chinese", 
+            "Spanish", 
+            "French", 
+            "Malay",
+            "Sabah Malay", 
+            "Sarawak Malay", 
+            "Kelantanese Malay", 
+            "Terengganu Malay", 
+            "Tamil (Malaysia)",
+            "Mandarin (Malaysia)",
+            "Hokkien", 
+            "Cantonese"
+        ],
     },
     "faqs": {
         "what_can_you_do": "I can help you with voice transcription, answer questions, and engage in natural conversations.",
