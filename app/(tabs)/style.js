@@ -79,6 +79,30 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#007AFF',
   },
+  pickerContainer: {
+    marginTop: 20,
+    width: '80%', // Adjust width as needed
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+  },
+  pickerLabel: {
+    fontSize: 16,
+    color: '#555',
+    paddingLeft: 10,
+    paddingTop: 5,
+  },
+  picker: {
+    height: 50,
+    width: '100%',
+  },
+  replayButton: {
+    backgroundColor: '#FFC107', // Example: Amber color
+    paddingVertical: 8,       // Smaller padding
+    paddingHorizontal: 15,
+    marginTop: 10,            // Add some space above
+    alignSelf: 'flex-start',  // Align to the left within its container
+  },
   
 });
 

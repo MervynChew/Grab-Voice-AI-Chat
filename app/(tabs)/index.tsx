@@ -1,22 +1,73 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Audio } from 'expo-av';
 import axios from 'axios';
 import { Platform } from 'react-native';  // Import Platform
+import * as Speech from 'expo-speech'; // Import expo-speech
 import styles from './style'; // Ensure your style.js exists and is valid
 import * as FileSystem from 'expo-file-system';
+import { Picker } from '@react-native-picker/picker'; // Import Picker
 
 export default function App() {
-  const [recording, setRecording] = useState(null);
-  const [audioUri, setAudioUri] = useState(null);
-  const [transcription, setTranscription] = useState(null);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [audioUri, setAudioUri] = useState<string | null>(null);
+  const [transcription, setTranscription] = useState<string | null>(null);
 
-  const [chatbotReply, setChatbotReply] = useState(null);
+  const [chatbotReply, setChatbotReply] = useState<string | null>(null);
 
+  // States for voice selection
+  const [availableVoices, setAvailableVoices] = useState<Speech.Voice[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
+  // States for language selection
+  const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
+  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+
+  // useEffect hook for fetching voices and languages
+  useEffect(() => {
+    async function loadSpeechData() {
+      try {
+        const voices = await Speech.getAvailableVoicesAsync();
+        setAvailableVoices(voices);
+
+        // Extract unique languages
+        const languages = [...new Set(voices.map(v => v.language))].sort();
+        setAvailableLanguages(languages);
+
+        // Set default language (try common ones first, then fallback)
+        const defaultLang = languages.find(l => l.startsWith('en')) || languages[0];
+        if (defaultLang) {
+            setSelectedLanguage(defaultLang);
+        }
+        
+      } catch (error) {
+        console.error("Error loading speech voices/languages:", error);
+      }
+    }
+    loadSpeechData();
+  }, []);
+
+  // useEffect hook to set default voice based on selected language
+  useEffect(() => {
+    if (selectedLanguage && availableVoices.length > 0) {
+        // Find voices for the selected language
+        const voicesForLanguage = availableVoices.filter(v => v.language === selectedLanguage);
+        
+        // Try setting a default based on common identifiers, otherwise first available for the language
+        const defaultVoice = voicesForLanguage.find(v => v.identifier.includes('Samantha') || v.identifier.includes('Default') || v.identifier.includes('Google')) || 
+                           voicesForLanguage[0]; // Fallback to the first voice for the language
+
+        if (defaultVoice) {
+            setSelectedVoice(defaultVoice.identifier);
+        } else {
+            setSelectedVoice(null); // No voice found for this language
+        }
+    }
+  }, [selectedLanguage, availableVoices]); // Rerun when language or voices change
 
   // Start recording
   const startRecording = async () => {
     try {
+      Speech.stop(); // Stop any ongoing speech before starting recording
       const permission = await Audio.requestPermissionsAsync();
       if (permission.granted) {
         const { recording: newRecording } = await Audio.Recording.createAsync(
@@ -34,6 +85,7 @@ export default function App() {
   // Stop recording
   const stopRecording = async () => {
     try {
+      Speech.stop(); // Stop any ongoing speech before stopping recording
       if (recording) {
         await recording.stopAndUnloadAsync();
         const uri = recording.getURI();
@@ -48,7 +100,7 @@ export default function App() {
   };
 
   // Function to detect MIME type (works for web and native)
-  const getFileType = async (uri) => {
+  const getFileType = async (uri: string) => {
     if (Platform.OS === 'web') {
       // Web implementation using FileReader to detect MIME type
       const file = await fetch(uri).then(response => response.blob());
@@ -57,8 +109,17 @@ export default function App() {
     } else {
       // Native implementation using expo-file-system
       const fileInfo = await FileSystem.getInfoAsync(uri);
-      return fileInfo.mimeType || 'audio/wav'; // Default to 'audio/wav' if MIME type not found
+      // Check for mimeType property directly
+      return 'mimeType' in fileInfo && typeof fileInfo.mimeType === 'string' ? fileInfo.mimeType : 'audio/wav';
     }
+  };
+
+  // Function to speak the chatbot response
+  const speakResponse = (text: string) => {
+    Speech.speak(text, {
+      language: 'en-US', // Base language setting
+      voice: selectedVoice || undefined, // Use selected voice identifier
+    });
   };
 
   // Transcribe audio by sending it to FastAPI backend
@@ -91,9 +152,9 @@ export default function App() {
           type: mimeType,
         };
       }
-  
-      formData.append("file", file);
-  
+
+      formData.append("file", file as any);
+
       // Debugging the FormData
       console.log("Form Data:", formData);
       console.log("MIME Type:", mimeType);
@@ -134,15 +195,16 @@ export default function App() {
 
 
   // Send transcription to chatbot backend and get a response
-  const sendToChatbot = async (message) => {
+  const sendToChatbot = async (message: string) => {
     try {
-      const response = await axios.post('http://192.168.100.5:8000/chat', {
+      const response = await axios.post('http://10.213.6.220:8000/chat', {
         message: message,
       });
   
       const botReply = response.data.reply;
       console.log("Chatbot Reply:", botReply);
       setChatbotReply(botReply);
+      speakResponse(botReply); // Speak the response
     } catch (error) {
       console.error("Error contacting chatbot:", error);
       setChatbotReply("Error contacting chatbot. Please try again.");
@@ -176,17 +238,55 @@ export default function App() {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Language Selection Dropdown */} 
+      {availableLanguages.length > 0 && (
+        <View style={styles.pickerContainer}> 
+          <Text style={styles.pickerLabel}>Select Language:</Text>
+          <Picker
+            selectedValue={selectedLanguage}
+            style={styles.picker} 
+            onValueChange={(itemValue) => setSelectedLanguage(itemValue)}
+          >
+            {availableLanguages.map((lang) => (
+              <Picker.Item key={lang} label={lang} value={lang} /> // Display language code, consider mapping to full names if needed
+            ))}
+          </Picker>
+        </View>
+      )}
+
+      {/* Voice Selection Dropdown - Filtered by Language */} 
+      {availableVoices.length > 0 && selectedLanguage && (
+        <View style={styles.pickerContainer}> 
+          <Text style={styles.pickerLabel}>Select Voice:</Text>
+          <Picker
+            selectedValue={selectedVoice}
+            style={styles.picker} 
+            onValueChange={(itemValue) => setSelectedVoice(itemValue)}
+            enabled={!!selectedVoice} // Disable if no voice is selected/available for the language
+          >
+            {availableVoices
+              .filter(voice => voice.language === selectedLanguage) // Filter voices by selected language
+              .map((voice) => (
+                <Picker.Item key={voice.identifier} label={`${voice.name} (${voice.quality || 'default'})`} value={voice.identifier} />
+            ))}
+          </Picker>
+        </View>
+      )}
+
       {transcription && (
         <View style={styles.transcriptionContainer}>
           <Text style={styles.sectionHeader}>Transcription:</Text>
           <Text style={styles.transcriptionText}>{transcription}</Text>
-        </View>
-      )}
-
-      {chatbotReply && (
-        <View style={styles.chatbotContainer}>
           <Text style={styles.sectionHeader}>Chatbot Reply:</Text>
           <Text style={styles.chatbotText}>{chatbotReply}</Text>
+          {/* Replay Button */} 
+          <TouchableOpacity
+            style={[styles.button, styles.replayButton]} // Add styles for replay button
+            onPress={() => { if (chatbotReply) speakResponse(chatbotReply); }} // Check if chatbotReply is not null
+          >
+            <Text style={styles.buttonText}>Replay</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
