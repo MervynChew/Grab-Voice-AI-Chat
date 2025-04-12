@@ -6,6 +6,9 @@ import whisper  # Import the local whisper model
 from tempfile import NamedTemporaryFile
 from pydub import AudioSegment
 
+import subprocess  # ⬅️ Add this at the top
+import uuid  # ⬅️ Optional: for generating unique filenames
+
 from .chatbot import ask_chatbot  # <- chatbot function
 from pydantic import BaseModel
 
@@ -64,8 +67,61 @@ async def transcribe_audio(file: UploadFile = File(...)):
         wav_file_path = temp_file_path + ".wav"
         audio.export(wav_file_path, format="wav")
 
-        # Transcribe the audio using the local Whisper model
-        result = model.transcribe(wav_file_path)
+        # === Noise Reduction using RNNoise ===
+        # Generate temporary filenames
+        input_raw_path = wav_file_path + ".raw"
+        output_raw_path = wav_file_path + "_denoised.raw"
+        denoised_wav_path = wav_file_path.replace(".wav", "_denoised.wav")
+
+        # Path to ffmpeg executable
+        ffmpeg_path = r"C:\Users\USER\Documents\UMHakathon\ffmpeg-master-latest-win64-gpl-shared\ffmpeg-master-latest-win64-gpl-shared\bin\ffmpeg.exe"
+
+        # 1. Convert WAV to raw PCM (s16le, 48kHz, mono)
+        subprocess.run([
+            ffmpeg_path, "-y", "-i", wav_file_path,
+            "-f", "s16le", "-ar", "48000", "-ac", "1", input_raw_path
+        ], check=True)
+
+        if not os.path.exists(input_raw_path) or os.path.getsize(input_raw_path) == 0:
+            raise Exception("Conversion to raw PCM failed: input.raw is missing or empty.")
+
+
+        print("filename:", file.filename)
+
+        # 2. Apply RNNoise
+        rnnoise_exe = r"C:/Users/USER/RNNoise/rnnoise/examples/rnnoise_demo.exe"
+
+        try:
+            subprocess.run(
+                [rnnoise_exe, input_raw_path, output_raw_path],
+                check=True,
+                cwd=r"C:/Users/USER/RNNoise/rnnoise"
+            )
+        except subprocess.CalledProcessError as e:
+            print("RNNoise execution failed:", e)
+            raise Exception("Noise reduction failed.") from e
+
+        print("content_type:", file.content_type)
+
+        if not os.path.exists(output_raw_path) or os.path.getsize(output_raw_path) == 0:
+            raise Exception("Noise reduction failed: output.raw is missing or empty.")
+
+
+        # 3. Convert back to WAV from raw
+        subprocess.run([
+            ffmpeg_path, "-y", "-f", "s16le", "-ar", "48000", "-ac", "1",
+            "-i", output_raw_path, denoised_wav_path
+        ], check=True)
+
+        print(f"Temporary file path: {temp_file_path}")
+        print(f"WAV file path: {wav_file_path}")
+        print(f"Raw PCM path: {input_raw_path}")
+        print(f"Denoised output path: {output_raw_path}")
+        print(f"Denoised WAV path: {denoised_wav_path}")
+
+
+        # Transcribe the denoised audio
+        result = model.transcribe(denoised_wav_path)
 
         # Return the transcription result
         return JSONResponse(content={"transcription": result['text']})
@@ -79,6 +135,10 @@ async def transcribe_audio(file: UploadFile = File(...)):
             os.remove(temp_file_path)
         if wav_file_path and os.path.exists(wav_file_path):
             os.remove(wav_file_path)
+        if input_raw_path and os.path.exists(input_raw_path):
+            os.remove(input_raw_path)
+        if output_raw_path and os.path.exists(output_raw_path):
+            os.remove(output_raw_path)
 
 
 @app.post("/chat")
