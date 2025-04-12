@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, FlatList, StyleSheet } from 'react-native';
 import { Audio } from 'expo-av';
 import axios from 'axios';
 import { Platform } from 'react-native';  // Import Platform
@@ -8,12 +8,22 @@ import styles from './style'; // Ensure your style.js exists and is valid
 import * as FileSystem from 'expo-file-system';
 import { Picker } from '@react-native-picker/picker'; // Import Picker
 
-export default function App() {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [audioUri, setAudioUri] = useState<string | null>(null);
-  const [transcription, setTranscription] = useState<string | null>(null);
+// Define the structure for a chat message
+interface ChatMessage {
+  id: string;
+  sender: 'user' | 'bot' | 'error';
+  text: string;
+}
 
-  const [chatbotReply, setChatbotReply] = useState<string | null>(null);
+export default function App() {
+  const [isRecording, setIsRecording] = useState(false);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+
+  const [audioUri, setAudioUri] = useState<string | null>(null);
+
+  // New state for chat history
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const flatListRef = useRef<FlatList>(null); // Ref for scrolling
 
   // States for voice selection
   const [availableVoices, setAvailableVoices] = useState<Speech.Voice[]>([]);
@@ -65,6 +75,41 @@ export default function App() {
     }
   }, [selectedLanguage, availableVoices]); // Rerun when language or voices change
 
+  const handlePress = async () => {
+    if (!isRecording) {
+      setIsRecording(true);
+      const rec = await startRecording(); // startRecording should return the object
+  
+    } else {
+      await stopRecording(); // Make sure this function stops recording properly
+      setIsRecording(false);
+  
+      // Ensure audioUri is set and then transcribe
+      if (audioUri) {
+        transcribeAudio();
+      } else {
+        // Handle case where audioUri is not ready yet (e.g., show an error message)
+        console.log("Audio URI not available.");
+      }
+    }
+  };
+  
+
+  // Function to add a message to the chat history
+  const addMessageToHistory = (sender: 'user' | 'bot' | 'error', text: string) => {
+    setChatHistory(prevHistory => [
+      ...prevHistory,
+      { id: Date.now().toString() + Math.random(), sender, text } // Basic unique ID
+    ]);
+  };
+
+   // Scroll to the bottom whenever chat history updates
+   useEffect(() => {
+    if (flatListRef.current) {
+      flatListRef.current.scrollToEnd({ animated: true });
+    }
+  }, [chatHistory]);
+
   // Start recording
   const startRecording = async () => {
     try {
@@ -75,6 +120,7 @@ export default function App() {
           Audio.RecordingOptionsPresets.HIGH_QUALITY
         );
         setRecording(newRecording);
+        return newRecording;  // Return the newRecording object
       } else {
         console.error("Permission to record audio is required.");
       }
@@ -82,23 +128,20 @@ export default function App() {
       console.error("Error starting recording:", err);
     }
   };
+  
 
   // Stop recording
   const stopRecording = async () => {
     try {
-      Speech.stop(); // Stop any ongoing speech before stopping recording
-      if (recording) {
-        await recording.stopAndUnloadAsync();
-        const uri = recording.getURI();
-        setAudioUri(uri);
-        console.log("Recording stopped, audio URI:", uri);
-      } else {
-        console.log("No recording found to stop.");
-      }
+      const { sound, status } = await recording.stopAndUnloadAsync();
+      const uri = recording.getURI(); // Retrieve the URI after stopping
+      setAudioUri(uri);  // Update audioUri in the state
+      return { sound, status };  // You can return the sound object if necessary
     } catch (err) {
       console.error("Error stopping recording:", err);
     }
   };
+  
 
   // Function to detect MIME type (works for web and native)
   const getFileType = async (uri: string) => {
@@ -177,20 +220,22 @@ export default function App() {
   
         // Only access response if the request was successful
         const transcriptionText = response.data.transcription;
-        setTranscription(transcriptionText);
+        addMessageToHistory('user', transcriptionText); // Add user message to history
   
         // Now send that to chatbot
         await sendToChatbot(transcriptionText);
   
         console.log("Transcription:", transcriptionText);
-      } catch (error) {
+      } catch (error: any) {
+        const errorMessage = "Error during transcription. Please try again.";
         console.error('Error during transcription:', error.response ? error.response.data : error.message);
-        setTranscription("Error during transcription. Please try again.");
+        addMessageToHistory('error', errorMessage); // Add error message to history
       }
   
-    } catch (err) {
-      console.error("Error during transcription:", err);
-      setTranscription("Error during transcription. Please try again.");
+    } catch (err: any) {
+      const errorMessage = "Error preparing transcription request.";
+      console.error("Error during transcription setup:", err);
+      addMessageToHistory('error', errorMessage); // Add error message to history
     }
   };
 
@@ -204,92 +249,195 @@ export default function App() {
   
       const botReply = response.data.reply;
       console.log("Chatbot Reply:", botReply);
-      setChatbotReply(botReply);
+      addMessageToHistory('bot', botReply); // Add bot message to history
       speakResponse(botReply); // Speak the response
-    } catch (error) {
-      console.error("Error contacting chatbot:", error);
-      setChatbotReply("Error contacting chatbot. Please try again.");
+    } catch (error: any) {
+      const errorMessage = "Error contacting chatbot. Please try again.";
+      console.error("Error contacting chatbot:", error.response ? error.response.data : error.message);
+      addMessageToHistory('error', errorMessage); // Add error message to history
     }
   };
   
-
+  // Function to replay the last bot message
+  const replayLastBotMessage = () => {
+    const lastBotMessage = [...chatHistory].reverse().find(msg => msg.sender === 'bot');
+    if (lastBotMessage) {
+        speakResponse(lastBotMessage.text);
+    } else {
+        console.log("No bot message found to replay.");
+        // Optionally, provide user feedback like an alert
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Voice Transcription App</Text>
-      <View style={styles.buttonsContainer}>
-        <TouchableOpacity
-          style={[styles.button, styles.startButton]}
-          onPress={startRecording}
-        >
-          <Text style={styles.buttonText}>Start Recording</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, styles.stopButton]}
-          onPress={stopRecording}
-        >
-          <Text style={styles.buttonText}>Stop Recording</Text>
-        </TouchableOpacity>
-        {audioUri && (
-          <TouchableOpacity
-            style={[styles.button, styles.transcribeButton]}
-            onPress={transcribeAudio}
-          >
-            <Text style={styles.buttonText}>Transcribe</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <Text style={styles.header}>Voice Chat App</Text>
 
-      {/* Language Selection Dropdown */} 
-      {availableLanguages.length > 0 && (
-        <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Select Language:</Text>
-          <Picker
-            selectedValue={selectedLanguage}
-            style={styles.picker}
-            onValueChange={(itemValue) => setSelectedLanguage(itemValue)}
-          >
-            {availableLanguages.map((lang) => (
-              <Picker.Item key={lang} label={lang} value={lang} />
-            ))}
-          </Picker>
-        </View>
-      )}
 
-      {/* Voice Selection Dropdown - Filtered by Language */} 
-      {availableVoices.length > 0 && selectedLanguage && (
-        <View style={styles.pickerContainer}> 
-          <Text style={styles.pickerLabel}>Select Voice:</Text>
-          <Picker
-            selectedValue={selectedVoice}
-            style={styles.picker} 
-            onValueChange={(itemValue) => setSelectedVoice(itemValue)}
-            enabled={!!selectedVoice} // Disable if no voice is selected/available for the language
-          >
-            {availableVoices
-              .filter(voice => voice.language === selectedLanguage) // Filter voices by selected language
-              .map((voice) => (
-                <Picker.Item key={voice.identifier} label={`${voice.name} (${voice.quality || 'default'})`} value={voice.identifier} />
-            ))}
-          </Picker>
-        </View>
-      )}
+      <View style={localStyles.layoutWrapper}>
 
-      {transcription && (
-        <View style={styles.transcriptionContainer}>
-          <Text style={styles.sectionHeader}>Transcription:</Text>
-          <Text style={styles.transcriptionText}>{transcription}</Text>
-          <Text style={styles.sectionHeader}>Chatbot Reply:</Text>
-          <Text style={styles.chatbotText}>{chatbotReply}</Text>
-          {/* Replay Button */} 
-          <TouchableOpacity
-            style={[styles.button, styles.replayButton]} // Add styles for replay button
-            onPress={() => { if (chatbotReply) speakResponse(chatbotReply); }} // Check if chatbotReply is not null
-          >
-            <Text style={styles.buttonText}>Replay</Text>
-          </TouchableOpacity>
+
+        <View style={localStyles.controlsContainer}>
+            <View style={localStyles.container}>
+              <TouchableOpacity
+                style={[
+                  localStyles.circleButton,
+                  isRecording ? localStyles.recording : localStyles.notRecording,
+                ]}
+                onPress={handlePress}
+              >
+                <Text style={localStyles.buttonText}>
+                  {isRecording ? 'Stop & Transcribe' : 'Start'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+
+            {availableLanguages.length > 0 && (
+              <View style={styles.pickerContainer}>
+                <Text style={styles.pickerLabel}>Language:</Text>
+                <Picker
+                  selectedValue={selectedLanguage}
+                  style={styles.picker}
+                  onValueChange={(itemValue) => setSelectedLanguage(itemValue)}
+                >
+                  {availableLanguages.map((lang) => (
+                    <Picker.Item key={lang} label={lang} value={lang} />
+                  ))}
+                </Picker>
+              </View>
+            )}
+
+
+   
+            {availableVoices.length > 0 && selectedLanguage && (
+              <View style={styles.pickerContainer}>
+                <Text style={styles.pickerLabel}>Voice:</Text>
+                <Picker
+                  selectedValue={selectedVoice}
+                  style={styles.picker}
+                  onValueChange={(itemValue) => setSelectedVoice(itemValue)}
+                  enabled={!!selectedVoice}
+                >
+                  {availableVoices
+                    .filter(voice => voice.language === selectedLanguage)
+                    .map((voice) => (
+                      <Picker.Item key={voice.identifier} label={`${voice.name} (${voice.quality || 'default'})`} value={voice.identifier} />
+                  ))}
+                </Picker>
+              </View>
+            )}
+       
+             <TouchableOpacity
+                  style={[styles.button, styles.replayButton, localStyles.replayButtonPosition]} // Add styles for replay button
+                  onPress={replayLastBotMessage} // Use updated replay function
+                  disabled={!chatHistory.some(msg => msg.sender === 'bot')} // Disable if no bot message exists
+               >
+                  <Text style={styles.buttonText}>Replay Last</Text>
+             </TouchableOpacity>
         </View>
-      )}
+
+
+
+        <View style={localStyles.chatContainer}>
+           <FlatList
+              ref={flatListRef}
+              data={chatHistory}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={[
+                    localStyles.messageBubble,
+                    item.sender === 'user' ? localStyles.userBubble : localStyles.botBubble,
+                    item.sender === 'error' ? localStyles.errorBubble : null 
+                ]}>
+                    <Text style={localStyles.messageText}>{item.text}</Text>
+                </View>
+              )}
+              ListEmptyComponent={<Text style={localStyles.emptyChatText}>No messages yet. Start recording!</Text>}
+          />
+        </View>
+
+      </View> 
+
     </View>
   );
 }
+
+// Add some basic local styles for the chat UI
+// These might need refinement and integration with your existing styles.js
+const localStyles = StyleSheet.create({
+  layoutWrapper: { // New style for the main horizontal layout
+    flex: 1,
+    flexDirection: 'row',
+  },
+  controlsContainer: {
+    width: 280, // Assign a fixed width for the controls column
+    padding: 10, // Add padding around controls
+    borderRightWidth: 1, // Add a separator line
+    borderRightColor: '#ccc',
+  },
+  chatContainer: {
+    flex: 1, // Takes remaining horizontal space
+    padding: 10, // Add padding inside the chat area
+  },
+  messageBubble: {
+    padding: 10,
+    borderRadius: 15,
+    marginBottom: 10,
+    maxWidth: '80%',
+  },
+  userBubble: {
+    backgroundColor: '#DCF8C6', // Light green for user
+    alignSelf: 'flex-end',
+    borderBottomRightRadius: 0,
+  },
+  botBubble: {
+    backgroundColor: '#EAEAEA', // Light grey for bot
+    alignSelf: 'flex-start',
+    borderBottomLeftRadius: 0,
+  },
+  errorBubble: {
+    backgroundColor: '#FFDEDE', // Light red for errors
+    alignSelf: 'center',
+    maxWidth: '90%',
+  },
+  messageText: {
+    fontSize: 16,
+  },
+  emptyChatText: {
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#888',
+  },
+   replayButtonPosition: {
+    marginTop: 10, // Add some space above the replay button
+  },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff', // Make sure container is visible
+  },
+  circleButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5, // Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  recording: {
+    backgroundColor: '#ff4d4d', // red
+  },
+  notRecording: {
+    backgroundColor: '#4caf50', // green
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+});
