@@ -2,6 +2,7 @@
 
 *   **Theme**: Economic empowerment through AI (from Grab's vision + AI)
 *   **Group Name**: CommitThis
+*   [**Presentation Slides**](https://www.canva.com/design/DAGkXBa41B0/trNP6qixFYITy1mW9XGaSg/edit?utm_content=DAGkXBa41B0&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) - Demo Video Included
 
 ## 🔍 Problem Statement
 
