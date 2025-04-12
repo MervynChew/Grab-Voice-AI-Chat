@@ -161,7 +161,7 @@ export default function App() {
   // Function to speak the chatbot response
   const speakResponse = (text: string) => {
     Speech.speak(text, {
-      language: 'en-US', // Base language setting
+      language: selectedLanguage || 'en-US', // Use selected language or fallback to English
       voice: selectedVoice || undefined, // Use selected voice identifier
     });
   };
@@ -199,15 +199,25 @@ export default function App() {
 
       formData.append("file", file as any);
 
-      // Debugging the FormData
+      // Add language parameter if a language is selected
+      // Extract the language code from the selected language (typically first 2 characters of the language string)
+      const languageCode = selectedLanguage ? selectedLanguage.split('-')[0].toLowerCase() : null;
+      const url = languageCode
+        ? "http://192.168.100.5:8000/transcribe?language=" + encodeURIComponent(languageCode)
+        : "http://192.168.100.5:8000/transcribe";
+
+
+      // Debugging log
       console.log("Form Data:", formData);
       console.log("MIME Type:", mimeType);
       console.log("File Name:", fileName);
       console.log("Audio URI:", audioUri);
+      console.log("Selected Language:", selectedLanguage);
+      console.log("Language Code:", languageCode);
   
       try {
         const response = await axios.post(
-          "http://192.168.100.5:8000/transcribe",
+          url,
           formData,
           {
             headers: {

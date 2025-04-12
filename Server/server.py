@@ -6,8 +6,8 @@ import whisper  # Import the local whisper model
 from tempfile import NamedTemporaryFile
 from pydub import AudioSegment
 
-import subprocess  # ⬅️ Add this at the top
-import uuid  # ⬅️ Optional: for generating unique filenames
+import subprocess  # ⬅ Add this at the top
+import uuid  # ⬅ Optional: for generating unique filenames
 
 from .chatbot import ask_chatbot  # <- chatbot function
 from pydantic import BaseModel
@@ -49,7 +49,7 @@ model = whisper.load_model("base")  # You can change "base" to another model lik
 
 # Endpoint to process audio and get transcription
 @app.post("/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)):
+async def transcribe_audio(file: UploadFile = File(...), language: str = None):
 
 
     # print("filename:", file.filename)
@@ -121,10 +121,14 @@ async def transcribe_audio(file: UploadFile = File(...)):
         print(f"Raw PCM path: {input_raw_path}")
         print(f"Denoised output path: {output_raw_path}")
         print(f"Denoised WAV path: {denoised_wav_path}")
+        print(f"Language: {language}")  # Log the language parameter
 
 
-        # Transcribe the denoised audio
-        result = model.transcribe(denoised_wav_path)
+        # Transcribe the denoised audio with language specified if provided
+        if language:
+            result = model.transcribe(denoised_wav_path, language=language)
+        else:
+            result = model.transcribe(denoised_wav_path)
 
         # Return the transcription result
         return JSONResponse(content={"transcription": result['text']})
@@ -153,4 +157,3 @@ async def chat_with_bot(request: ChatRequest):
     except Exception as e:
         print(f"Error in /chat endpoint: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
-
